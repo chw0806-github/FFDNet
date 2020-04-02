@@ -7,4 +7,4 @@ The project was developed and tested mainly using Google Colab to have GPU suppo
 1. Copy the project to a Google Drive
 2. Open code/main_notebook.ipynb with Google Colab
 
-To keep this repo in a reasonable size it only contains a portion of our training/evaluation data. The complete data can be found  [here](https://drive.google.com/open?id=1z5IBPs_iBLQkji-2cyvx5qMmYI3l-apc]).
+To keep this repo in a reasonable size it only contains a portion of our training/evaluation data. The complete data can be found  [here](https://drive.google.com/open?id=1_BNv4Pj6rbZ3jYoTpGV0h9Z5enBRO6Ik).
