@@ -1,18 +1,19 @@
 import torch
-import numpy as np
 import os
+import numpy as np
 from torch.utils.data import IterableDataset
 from scipy.signal import convolve2d
+from scipy.special import polygamma
 
 modality_amplitude = 'modality_amplitude'
 modality_log_intensity = 'modality_log_intensity'
 
 def compute_std_map(noised_img, 
                     ground_truth_img, 
-                    modality,
+                    modality,     
                     std_from_ground_truth=False, 
                     window_size=7,
-                    const_sigma = False):
+                    const_sigma = False,L=1.0,):
     '''
     Computes the noise level map for 'noised_img'
     '''

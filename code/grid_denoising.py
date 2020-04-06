@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from dataloading import compute_std_map
-from estimer_psnr import psnr
+from utils import psnr
 
 
 def denoise_image_grid(model, img, modality, window_size, const_sigma, grid_size=250):

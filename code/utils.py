@@ -40,160 +40,9 @@ def weights_init_kaiming(lyr):
 			clamp_(-0.025, 0.025)
 		nn.init.constant(lyr.bias.data, 0.0)
 
-def batch_psnr(img, imclean, data_range):
-	r"""
-	Computes the PSNR along the batch dimension (not pixel-wise)
 
-	Args:
-		img: a `torch.Tensor` containing the restored image
-		imclean: a `torch.Tensor` containing the reference image
-		data_range: The data range of the input image (distance between
-			minimum and maximum possible values). By default, this is estimated
-			from the image data-type.
-	"""
-	img_cpu = img.data.cpu().numpy().astype(np.float32)
-	imgclean = imclean.data.cpu().numpy().astype(np.float32)
-	psnr = 0
-	for i in range(img_cpu.shape[0]):
-		psnr += compare_psnr(imgclean[i, :, :, :], img_cpu[i, :, :, :], \
-					   data_range=data_range)
-	return psnr/img_cpu.shape[0]
 
-def data_augmentation(image, mode):
-	r"""Performs dat augmentation of the input image
 
-	Args:
-		image: a cv2 (OpenCV) image
-		mode: int. Choice of transformation to apply to the image
-			0 - no transformation
-			1 - flip up and down
-			2 - rotate counterwise 90 degree
-			3 - rotate 90 degree and flip up and down
-			4 - rotate 180 degree
-			5 - rotate 180 degree and flip
-			6 - rotate 270 degree
-			7 - rotate 270 degree and flip
-	"""
-	out = np.transpose(image, (1, 2, 0))
-	if mode == 0:
-		# original
-		out = out
-	elif mode == 1:
-		# flip up and down
-		out = np.flipud(out)
-	elif mode == 2:
-		# rotate counterwise 90 degree
-		out = np.rot90(out)
-	elif mode == 3:
-		# rotate 90 degree and flip up and down
-		out = np.rot90(out)
-		out = np.flipud(out)
-	elif mode == 4:
-		# rotate 180 degree
-		out = np.rot90(out, k=2)
-	elif mode == 5:
-		# rotate 180 degree and flip
-		out = np.rot90(out, k=2)
-		out = np.flipud(out)
-	elif mode == 6:
-		# rotate 270 degree
-		out = np.rot90(out, k=3)
-	elif mode == 7:
-		# rotate 270 degree and flip
-		out = np.rot90(out, k=3)
-		out = np.flipud(out)
-	else:
-		raise Exception('Invalid choice of image transformation')
-	return np.transpose(out, (2, 0, 1))
-
-def variable_to_cv2_image(varim):
-	r"""Converts a torch.autograd.Variable to an OpenCV image
-
-	Args:
-		varim: a torch.autograd.Variable
-	"""
-	nchannels = varim.size()[1]
-	if nchannels == 1:
-		res = (varim.data.cpu().numpy()[0, 0, :]*255.).clip(0, 255).astype(np.uint8)
-	elif nchannels == 3:
-		res = varim.data.cpu().numpy()[0]
-		res = cv2.cvtColor(res.transpose(1, 2, 0), cv2.COLOR_RGB2BGR)
-		res = (res*255.).clip(0, 255).astype(np.uint8)
-	else:
-		raise Exception('Number of color channels not supported')
-	return res
-
-def get_git_revision_short_hash():
-	r"""Returns the current Git commit.
-	"""
-	return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip()
-
-def init_logger(argdict):
-	r"""Initializes a logging.Logger to save all the running parameters to a
-	log file
-
-	Args:
-		argdict: dictionary of parameters to be logged
-	"""
-	from os.path import join
-
-	logger = logging.getLogger(__name__)
-	logger.setLevel(level=logging.INFO)
-	fh = logging.FileHandler(join(argdict.log_dir, 'log.txt'), mode='a')
-	formatter = logging.Formatter('%(asctime)s - %(message)s')
-	fh.setFormatter(formatter)
-	logger.addHandler(fh)
-	try:
-		logger.info("Commit: {}".format(get_git_revision_short_hash()))
-	except Exception as e:
-		logger.error("Couldn't get commit number: {}".format(e))
-	logger.info("Arguments: ")
-	for k in argdict.__dict__:
-		logger.info("\t{}: {}".format(k, argdict.__dict__[k]))
-
-	return logger
-
-def init_logger_ipol():
-	r"""Initializes a logging.Logger in order to log the results after
-	testing a model
-
-	Args:
-		result_dir: path to the folder with the denoising results
-	"""
-	logger = logging.getLogger('testlog')
-	logger.setLevel(level=logging.INFO)
-	fh = logging.FileHandler('out.txt', mode='w')
-	formatter = logging.Formatter('%(message)s')
-	fh.setFormatter(formatter)
-	logger.addHandler(fh)
-
-	return logger
-
-def init_logger_test(result_dir):
-	r"""Initializes a logging.Logger in order to log the results after testing
-	a model
-
-	Args:
-		result_dir: path to the folder with the denoising results
-	"""
-	from os.path import join
-
-	logger = logging.getLogger('testlog')
-	logger.setLevel(level=logging.INFO)
-	fh = logging.FileHandler(join(result_dir, 'log.txt'), mode='a')
-	formatter = logging.Formatter('%(asctime)s - %(message)s')
-	fh.setFormatter(formatter)
-	logger.addHandler(fh)
-
-	return logger
-
-def normalize(data):
-	r"""Normalizes a unit8 image to a float32 image in the range [0, 1]
-
-	Args:
-		data: a unint8 numpy array to normalize from [0, 255] to [0, 1]
-	"""
-	return np.float32(data/255.)
 
 def svd_orthogonalization(lyr):
 	r"""Applies regularization to the training by performing the
@@ -229,31 +78,35 @@ def svd_orthogonalization(lyr):
 	else:
 		pass
 
-def remove_dataparallel_wrapper(state_dict):
-	r"""Converts a DataParallel model to a normal one by removing the "module."
-	wrapper in the module dictionary
 
-	Args:
-		state_dict: a torch.nn.DataParallel state dictionary
+
+#############
+#The following functions are used from the FFDNet code of Mr. emanuele dalsasso
+#############
+
+def psnr(Shat, S):
 	"""
-	from collections import OrderedDict
-
-	new_state_dict = OrderedDict()
-	for k, vl in state_dict.items():
-		name = k[7:] # remove 'module.' of DataParallel
-		new_state_dict[name] = vl
-
-	return new_state_dict
-
-def is_rgb(im_path):
-	r""" Returns True if the image in im_path is an RGB image
+	Author: emanuele dalsasso
+	Estimate PSNR for SAR amplitude images
 	"""
-	from skimage.io import imread
-	rgb = False
-	im = imread(im_path)
-	if (len(im.shape) == 3):
-		if not(np.allclose(im[...,0], im[...,1]) and np.allclose(im[...,2], im[...,1])):
-			rgb = True
-	print("rgb: {}".format(rgb))
-	print("im shape: {}".format(im.shape))
-	return rgb
+    # Shat: a SAR amplitude image
+    # S:    a reference SAR image
+	P = np.quantile(S, 0.99)
+	res = 10 * np.log10((P ** 2) / np.mean(np.abs(Shat - S) ** 2))
+	return res
+
+
+def injectspeckle_amplitude(img,L):
+	"""
+	Author: emanuele dalsasso
+	Inject speckle in amplitude image
+	"""
+	rows = img.shape[0]
+	columns = img.shape[1]
+	s = np.zeros((rows, columns))
+	for k in range(0,L):
+		gamma = np.abs( np.random.randn(rows,columns) + np.random.randn(rows,columns)*1j )**2/2
+		s = s + gamma
+	s_amplitude = np.sqrt(s/L)
+	ima_speckle_amplitude = np.multiply(img,s_amplitude)
+	return ima_speckle_amplitude
